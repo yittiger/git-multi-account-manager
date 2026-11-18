@@ -111,8 +111,29 @@ Vue.component('projects-page', {
           this.addModal.error = result.error;
           return;
         }
+
+        // 选了账号就顺手完成绑定（改写 remote + 写仓库级提交身份）。
+        // 只「登记 + 记下 accountId」是不够的：身份和 remote 都不会变，
+        // 用户会以为已经绑好了，实际提交仍用全局身份、拉取仍走裸域名。
+        let bindFail = '';
+        if (this.addModal.accountId && result.project) {
+          const bindResult = await window.gitApi.projects.bind({
+            id: result.project.id,
+            accountId: this.addModal.accountId,
+            options: {}
+          });
+          if (!bindResult.ok) {
+            const failed = (bindResult.steps || []).filter((step) => !step.ok).map((step) => step.name + '：' + step.message);
+            bindFail = failed.join('；') || bindResult.error || '未知原因';
+          }
+        }
+
         this.addModal.visible = false;
-        this.$root.toast('已添加项目：' + result.project.name, 'ok');
+        if (bindFail) {
+          this.$root.toast('已添加项目：' + result.project.name + '，但绑定失败：' + bindFail, 'err');
+        } else {
+          this.$root.toast('已添加项目：' + result.project.name + (this.addModal.accountId ? '，已绑定账号' : ''), 'ok');
+        }
         this.$emit('refresh');
       } catch (err) {
         this.addModal.error = err.message;
@@ -507,6 +528,7 @@ Vue.component('projects-page', {
               <option value="">暂不绑定</option>
               <option v-for="item in accountOptions" :key="item.id" :value="item.id">{{ item.label }} · {{ item.alias }}</option>
             </select>
+            <span class="hint">选账号后会自动完成绑定：remote 改写成 git@别名:owner/repo.git，并写入仓库级 user.name/email。</span>
           </div>
         </div>
         <div class="hint err" v-if="addModal.error">{{ addModal.error }}</div>
