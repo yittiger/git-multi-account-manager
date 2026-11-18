@@ -1,1 +1,15 @@
-1
+node_modules/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+
+# 测试与运行产生的临时输出
+smoke-out.txt
+smoke-err.txt
+run-out.txt
+run-err.txt
+pkg-out.txt
+pkg-err.txt
+test/smoke-report.json
+test/lib-test-report.json

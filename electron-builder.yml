@@ -1,0 +1,51 @@
+# electron-builder 打包配置
+# 目标产物：Windows x64 安装包（nsis）+ 免安装单文件（portable）
+appId: com.gitools.multiaccount
+productName: Git多账号管理器
+copyright: Copyright © 2026 yittiger
+
+directories:
+  output: dist
+  buildResources: build
+
+# 只打包运行必需的内容；测试代码与临时报告不进包
+files:
+  - main/**/*
+  - renderer/**/*
+  - package.json
+  - "!test/**/*"
+  - "!**/*.md"
+  - "!**/.git-tools.backup"
+
+# 代码打进 asar 包，避免散落文件被误改
+asar: true
+asarUnpack:
+  - "**/node_modules/vue/dist/**"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  # 如有自定义图标，把 build/icon.ico 放好即可自动使用
+  requestedExecutionLevel: asInvoker
+  # 写入 exe 版本信息的「法定商标 / 产品名称」字段
+  legalTrademarks: yittiger
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Git多账号管理器
+  # 卸载时保留 ~/.git-tools 配置，避免用户的账号/项目清单丢失
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: "${productName}-${version}-portable.${ext}"

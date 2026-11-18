@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!-- Git 多账号管理器 · 作者：yittiger -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;">
+  <title>Git 多账号管理器</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">G</div>
+        <span>Git 多账号管理器</span>
+      </div>
+      <div class="env-pills">
+        <span class="pill" :class="envClass('git')"><span class="dot"></span>Git {{ envText('git') }}</span>
+        <span class="pill" :class="envClass('ssh')"><span class="dot"></span>SSH {{ envText('ssh') }}</span>
+        <span class="pill" :class="envClass('sshKeygen')"><span class="dot"></span>KEYGEN {{ envText('sshKeygen') }}</span>
+      </div>
+      <div class="header-spacer"></div>
+      <button class="btn ghost sm" @click="reloadAll" :disabled="busy">
+        {{ busy ? '刷新中…' : '刷新全部' }}
+      </button>
+    </header>
+
+    <div class="app-body">
+      <aside class="sidebar">
+        <button
+          v-for="nav in navs"
+          :key="nav.key"
+          class="nav-item"
+          :class="{ active: tab === nav.key }"
+          @click="switchTab(nav.key)">
+          <span class="nav-icon">{{ nav.icon }}</span>
+          <span>{{ nav.label }}</span>
+          <span class="nav-count" v-if="nav.countKey">{{ countOf(nav.countKey) }}</span>
+        </button>
+        <div class="sidebar-foot">
+          <div>配置：~/.git-tools</div>
+          <div>SSH：~/.ssh/config</div>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div v-if="!info" class="empty">正在读取环境信息…</div>
+
+        <template v-else>
+          <div class="banner err" v-if="!hasGit">
+            <span>未检测到 Git，除密钥管理外的功能不可用。</span>
+            <div class="spacer"></div>
+            <button class="btn sm" @click="switchTab('settings')">去指定 git.exe 路径</button>
+          </div>
+
+          <accounts-page
+            v-if="tab === 'accounts'"
+            :accounts="accounts"
+            :info="info"
+            @refresh="reloadAccounts">
+          </accounts-page>
+
+          <projects-page
+            v-if="tab === 'projects'"
+            :projects="projects"
+            :accounts="accounts"
+            @refresh="reloadAll">
+          </projects-page>
+
+          <git-page
+            v-if="tab === 'git'"
+            :projects="projects"
+            :focus-id="gitFocusId"
+            @refresh="reloadProjects">
+          </git-page>
+
+          <diagnose-page
+            v-if="tab === 'diagnose'"
+            :accounts="accounts"
+            :projects="projects"
+            @refresh="reloadAll">
+          </diagnose-page>
+
+          <settings-page
+            v-if="tab === 'settings'"
+            :info="info"
+            @refresh="reloadAll">
+          </settings-page>
+        </template>
+      </main>
+    </div>
+
+    <ui-toast :items="toasts"></ui-toast>
+  </div>
+
+  <script src="../node_modules/vue/dist/vue.min.js"></script>
+  <script src="./components/ui.js"></script>
+  <script src="./pages/accounts.js"></script>
+  <script src="./pages/projects.js"></script>
+  <script src="./pages/git.js"></script>
+  <script src="./pages/diagnose.js"></script>
+  <script src="./pages/settings.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

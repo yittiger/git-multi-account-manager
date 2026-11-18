@@ -1,0 +1,26 @@
+{
+  "name": "git-multi-account-manager",
+  "version": "1.0.0",
+  "description": "Git 多账号管理桌面工具：账号与 SSH 密钥管理、项目绑定、Git 操作面板、配置诊断",
+  "main": "main/index.js",
+  "author": {
+    "name": "yittiger",
+    "email": "2687033794@qq.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable --x64",
+    "build:dir": "electron-builder --win --x64 --dir",
+    "build:installer": "electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "vue": "^2.7.16"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}
