@@ -23,6 +23,7 @@ process.env.HOME = tmpHome;
 const sshConfig = require('../main/lib/sshConfig');
 const accounts = require('../main/lib/accounts');
 const projects = require('../main/lib/projects');
+const sshClient = require('../main/lib/sshClient');
 const store = require('../main/lib/store');
 
 const results = [];
@@ -55,6 +56,32 @@ async function main() {
   check('生成别名地址', aliasUrl === 'git@gitee-work:owner/repo.git', aliasUrl);
 
   check('识别已使用别名', projects.isUsingAlias('git@gitee-work:owner/repo.git', { alias: 'gitee-work' }) === true);
+
+  // ---------- 1.1 SSH 客户端实现探测（plink 不读 ssh config） ----------
+  check('识别 plink 路径', sshClient.classify('d:\\mysoft\\TortoiseGit\\bin\\TortoiseGitPlink.exe') === 'plink');
+  check('识别 OpenSSH 路径', sshClient.classify('C:\\Windows\\System32\\OpenSSH\\ssh.exe') === 'openssh');
+  check('识别裸 ssh 命令', sshClient.classify('ssh') === 'openssh');
+  check('空路径判为 none', sshClient.classify('') === 'none');
+
+  const plinkDetect = sshClient.detect({
+    env: { GIT_SSH: 'd:\\mysoft\\TortoiseGit\\bin\\TortoiseGitPlink.exe' },
+    userEnv: { GIT_SSH: '', GIT_SSH_COMMAND: '' },
+    globalSshCommand: '',
+    tortoiseGitSsh: 'd:\\mysoft\\TortoiseGit\\bin\\TortoiseGitPlink.exe',
+    pathSsh: 'C:\\Windows\\System32\\OpenSSH\\ssh.exe'
+  });
+  check('plink 被判定为不兼容', plinkDetect.ok === false && plinkDetect.plinkSources.length === 2, JSON.stringify(plinkDetect.plinkSources.map((s) => s.key)));
+  check('命令行生效来源是 plink', plinkDetect.effective.kind === 'plink', plinkDetect.effective.key);
+  check('GUI 层 plink 单独标注', plinkDetect.guiPlink === true);
+
+  const openSshDetect = sshClient.detect({
+    env: {},
+    userEnv: { GIT_SSH: '', GIT_SSH_COMMAND: '' },
+    globalSshCommand: '',
+    tortoiseGitSsh: 'C:\\Windows\\System32\\OpenSSH\\ssh.exe',
+    pathSsh: 'C:\\Windows\\System32\\OpenSSH\\ssh.exe'
+  });
+  check('OpenSSH 环境判定为兼容', openSshDetect.ok === true && openSshDetect.effective.kind === 'openssh', openSshDetect.effective.kind);
 
   // ---------- 2. 预置已有 ssh config，验证不被破坏 ----------
   const configFile = path.join(tmpHome, '.ssh', 'config');
@@ -125,6 +152,12 @@ async function main() {
 
   const pub = accounts.readPublicKey(accountId);
   check('读取公钥内容', pub.ok === true && pub.value.indexOf('ssh-ed25519') === 0, (pub.value || pub.error || '').slice(0, 60));
+
+  // ---------- 5.0 必须用 plink 时的兼容方案 ----------
+  const plinkPlan = sshClient.buildPlinkPlan(account);
+  check('兼容方案给出 ppk 转换命令', /puttygen/.test(plinkPlan.convertCommand) && /\.ppk/.test(plinkPlan.convertCommand), plinkPlan.convertCommand);
+  check('兼容方案给出仓库级 core.sshCommand', /core\.sshCommand/.test(plinkPlan.sshCommand) && /plink -batch -i/.test(plinkPlan.sshCommand), plinkPlan.sshCommand);
+  check('兼容方案提示不能用别名地址', /真实域名/.test(plinkPlan.note), plinkPlan.note.slice(0, 40));
 
   // ---------- 5.1 域名兜底映射 ----------
   // 裸域名（git@github.com:...）不会命中别名块，必须靠域名兜底块

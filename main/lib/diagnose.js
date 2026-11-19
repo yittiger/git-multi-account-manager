@@ -15,6 +15,7 @@ const gitRunner = require('./gitRunner');
 const accounts = require('./accounts');
 const projects = require('./projects');
 const sshConfig = require('./sshConfig');
+const sshClient = require('./sshClient');
 
 /**
  * 构造一条诊断结果
@@ -71,6 +72,51 @@ async function run(options) {
     }));
   } else {
     items.push(item({ scope: 'env', level: 'ok', title: 'ssh 可用', detail: versions.ssh.version }));
+  }
+
+  // SSH 客户端实现：OpenSSH 才认 ~/.ssh/config，plink 不认
+  const sshClientInfo = sshClient.detect();
+  if (sshClientInfo.plinkSources.length) {
+    const firstAccount = accounts.list()[0];
+    const plan = firstAccount ? sshClient.buildPlinkPlan(firstAccount) : null;
+    const where = sshClientInfo.plinkSources.map((item) => item.key + ' = ' + item.value).join('；');
+    const compatLines = plan
+      ? [
+          '若必须继续用 plink（例如团队统一用 Pageant），只能走兼容方案：',
+          '1) 私钥转 ppk：' + plan.convertCommand,
+          '2) 仓库级指定：' + plan.sshCommand,
+          '3) remote 写回真实域名（不能用别名地址）'
+        ].join('\n')
+      : '';
+    items.push(item({
+      scope: 'env',
+      level: sshClientInfo.guiPlink && sshClientInfo.effective.kind !== 'plink' ? 'warn' : 'error',
+      title: 'Git 客户端使用 PuTTY/plink，别名地址会失效',
+      detail: '检测到 ' + where + '。plink 不读取 ~/.ssh/config，' +
+        'git@别名:owner/repo.git 会报 “Unable to open connection: Host does not exist”，' +
+        'IdentityFile / IdentitiesOnly 也全部不生效。切换到 OpenSSH 即可恢复别名机制。\n' + compatLines,
+      fix: sshClientInfo.openSshPath
+        ? { action: 'switchSshClient', label: '切换 TortoiseGit 到 OpenSSH' }
+        : null
+    }));
+  }
+  if (!sshClientInfo.ok && sshClientInfo.effective.kind === 'plink') {
+    items.push(item({
+      scope: 'env',
+      level: 'error',
+      title: '命令行 git 的 ssh 被环境变量/全局配置指定为 plink',
+      detail: '生效来源：' + sshClientInfo.effective.key + ' = ' + sshClientInfo.effective.value +
+        '。该项无法由本工具修改（属于环境变量或全局 git 配置），请手动改为 OpenSSH，或执行：' +
+        'git config --global --unset core.sshCommand（若来源是 core.sshCommand）。'
+    }));
+  } else if (sshClientInfo.ok) {
+    items.push(item({
+      scope: 'env',
+      level: 'ok',
+      title: 'SSH 客户端为 OpenSSH',
+      detail: '生效来源：' + sshClientInfo.effective.key + ' → ' + (sshClientInfo.effective.value || '未探测到') +
+        '，别名与 IdentityFile 正常生效。'
+    }));
   }
 
   if (!versions.sshKeygen.available) {
@@ -424,6 +470,17 @@ async function applyFix(payload) {
 
   if (action === 'applyDomainMapping') {
     return accounts.applyDomainMapping(payload.accountId);
+  }
+
+  if (action === 'switchSshClient') {
+    const result = sshClient.switchTortoiseGitToOpenSsh();
+    if (!result.ok) return result;
+    const after = sshClient.detect();
+    const remain = after.plinkSources.filter((source) => source.scope !== 'gui');
+    return Object.assign({}, result, {
+      ok: true,
+      residual: remain.map((source) => source.key + ' = ' + source.value)
+    });
   }
 
   if (action === 'removeDomainMapping') {

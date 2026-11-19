@@ -237,6 +237,44 @@ git@github.com:owner/repo.git     ← ssh 只试 ~/.ssh/id_rsa
 
 ---
 
+## SSH 客户端实现：OpenSSH 还是 plink
+
+整套别名方案（`Host 别名` / `IdentityFile` / `IdentitiesOnly`）都建立在 **OpenSSH 的 config 语义**上。换成 PuTTY 系客户端，配置就整段失效：
+
+| 客户端 | 报错措辞 | 读 `~/.ssh/config` |
+|---|---|---|
+| OpenSSH（Windows 自带 / Git 自带） | `Could not resolve hostname` | 读 |
+| PuTTY / TortoisePlink | `Unable to open connection: Host does not exist` | **不读** |
+
+plink 只认 PuTTY 自己的 session 列表，于是 `git@gitee-dojustek:owner/repo.git` 会被当成"不存在的 Host"，看起来像密钥没配好，实际是客户端换了实现。
+
+**诊断页会主动检测**这几处来源（优先级与 git 一致）：
+
+```
+GIT_SSH_COMMAND > GIT_SSH（含用户级持久变量）> core.sshCommand(global) > PATH ssh
+TortoiseGit SSH  ← 只影响 TortoiseGit 自己的 GUI 操作
+```
+
+检测到 plink 时给出一条「错误/警告」项，并提供两条路：
+
+**路线 1（推荐，一键）**：切换 TortoiseGit 的 SSH 客户端到 OpenSSH。工具直接改
+`HKCU\Software\TortoiseGit\SSH`（用户级，可随时改回），改完 `TortoiseGitProc.exe`
+重新操作即生效。切换后不再依赖 Pageant，`ssh-add` 也不需要。
+
+**路线 2（团队强制用 plink / Pageant 时）**：plink 没有 `IdentityFile` 语义，只能显式指定：
+
+```bat
+:: 1) 私钥转 PuTTY 格式
+puttygen C:/Users/xxx/.ssh/gitee-dojustek -O private -o C:/Users/xxx/.ssh/gitee-dojustek.ppk
+
+:: 2) 仓库级指定 plink + 私钥（不能用别名地址，remote 要写回真实域名）
+git config --local core.sshCommand "plink -batch -i C:/Users/xxx/.ssh/gitee-dojustek.ppk"
+```
+
+诊断项里会把上面两条命令按你实际的密钥路径填好，直接复制执行即可。
+
+---
+
 ## 目录结构
 
 ```

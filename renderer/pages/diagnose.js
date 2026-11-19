@@ -117,6 +117,9 @@ Vue.component('diagnose-page', {
           return;
         }
         this.$root.toast('已修复：' + item.title, 'ok');
+        if (result.residual && result.residual.length) {
+          this.$root.toast('仍有其它来源指向 plink，需要手动处理：' + result.residual.join('；'), 'err');
+        }
         await this.run();
         this.$emit('refresh');
       } catch (err) {

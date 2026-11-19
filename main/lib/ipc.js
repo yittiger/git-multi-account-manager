@@ -18,6 +18,7 @@ const accounts = require('./accounts');
 const projects = require('./projects');
 const diagnose = require('./diagnose');
 const gitRunner = require('./gitRunner');
+const sshClient = require('./sshClient');
 
 /**
  * 统一包装 handler：捕获异常并记录日志，保证返回值可序列化
@@ -194,8 +195,12 @@ function register() {
     return { ok: true, path: result.filePaths[0] };
   });
 
-  handle('clipboard:copy', (payload) => {
-    clipboard.writeText(String((payload && payload.text) || ''));
+  // ---------- SSH 客户端实现（OpenSSH / plink 探测） ----------
+  handle('system:sshClient', () => Object.assign({ ok: true }, sshClient.detect()));
+
+  handle('system:switchSshClient', () => sshClient.switchTortoiseGitToOpenSsh());
+
+  handle('clipboard:copy', (payload) => {    clipboard.writeText(String((payload && payload.text) || ''));
     return { ok: true };
   });
 

@@ -102,6 +102,8 @@ contextBridge.exposeInMainWorld('gitApi', {
     copy: (text) => invoke('clipboard:copy', { text }),
     openPath: (target) => invoke('shell:openPath', { path: target }),
     openExternal: (url) => invoke('shell:openExternal', { url }),
-    reveal: (target) => invoke('shell:revealItem', { path: target })
+    reveal: (target) => invoke('shell:revealItem', { path: target }),
+    sshClient: () => invoke('system:sshClient'),
+    switchSshClient: () => invoke('system:switchSshClient')
   }
 });
